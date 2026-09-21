@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log in — Inkwell</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <nav class="site-nav">
+    <div class="container">
+      <a href="index.html" class="brand">Ink<span>well</span></a>
+      <ul class="nav-links" id="nav-auth-slot"></ul>
+    </div>
+  </nav>
+
+  <div class="auth-wrap">
+    <div class="auth-card">
+      <h1>Welcome back</h1>
+      <p class="auth-sub">Log in to write and manage your posts.</p>
+
+      <div class="form-error" id="form-error"></div>
+
+      <form id="login-form" novalidate>
+        <div class="field">
+          <label for="email">Email</label>
+          <input type="email" id="email" name="email" required autocomplete="email" />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required autocomplete="current-password" />
+        </div>
+        <button type="submit" class="btn btn-block">Log in</button>
+      </form>
+
+      <p class="auth-switch">Don't have an account? <a href="register.html">Sign up</a></p>
+    </div>
+  </div>
+
+  <script src="js/auth.js"></script>
+  <script>
+    const form = document.getElementById("login-form");
+    const errorBox = document.getElementById("form-error");
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      errorBox.classList.remove("show");
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!isValidEmail(email) || !password) {
+        errorBox.textContent = "Enter a valid email and your password.";
+        errorBox.classList.add("show");
+        return;
+      }
+
+      try {
+        const user = loginUser({ email, password });
+        setCurrentUser(user);
+        window.location.href = "dashboard.html";
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.classList.add("show");
+      }
+    });
+  </script>
+</body>
+</html>
