@@ -18,16 +18,27 @@
   </nav>
 
   <main class="container">
-    <div class="dash-header">
-      <div>
-        <h1 id="dash-title">Your posts</h1>
-        <p id="dash-sub"></p>
+    <div class="dashboard-shell">
+      <div class="profile-card">
+        <p class="card-label">Profile</p>
+        <h2 id="profile-name">User</h2>
+        <p id="profile-email"></p>
+        <button class="btn btn-outline btn-block" id="logout-button" type="button">Log out</button>
       </div>
-      <a href="create-blog.html" class="btn">Write a new post</a>
-    </div>
 
-    <div id="dash-post-list">
-      <!-- filled by script below -->
+      <div class="dash-panel">
+        <div class="dash-header">
+          <div>
+            <h1 id="dash-title">Your posts</h1>
+            <p id="dash-sub"></p>
+          </div>
+          <a href="create-blog.html" class="btn">Write a new post</a>
+        </div>
+
+        <div id="dash-post-list">
+          <!-- filled by script below -->
+        </div>
+      </div>
     </div>
   </main>
 
@@ -42,7 +53,10 @@
 
     async function renderDashboard() {
       if (!user) return;
+      document.getElementById("profile-name").textContent = user.name;
+      document.getElementById("profile-email").textContent = user.email;
       document.getElementById("dash-sub").textContent = `Signed in as ${user.name}`;
+      document.getElementById("logout-button").addEventListener("click", logout);
 
       const posts = await fetchPosts();
       const myPosts = posts.filter((p) => p.authorId === user.id);

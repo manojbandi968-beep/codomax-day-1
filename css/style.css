@@ -214,6 +214,40 @@ button:focus-visible {
   line-height: 1.6;
 }
 
+.nav-user {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.dashboard-shell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 24px;
+  margin-top: 28px;
+}
+
+.profile-card,
+.dash-panel {
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 22px;
+}
+
+.card-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+
+#profile-email {
+  color: var(--ink-soft);
+  margin-bottom: 18px;
+}
+
 .toolbar {
   display: flex;
   gap: 12px;

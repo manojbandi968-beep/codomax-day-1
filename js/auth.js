@@ -90,6 +90,7 @@ function renderNavAuthState() {
   if (user) {
     authSlot.innerHTML = `
       <a href="dashboard.html">Dashboard</a>
+      <span class="nav-user">Hi, ${escapeHtml(user.name || "there")}</span>
       <a href="#" id="nav-logout-link">Log out</a>
     `;
     document.getElementById("nav-logout-link").addEventListener("click", (e) => {
@@ -114,3 +115,9 @@ window.loginUser = loginUser;
 window.renderNavAuthState = renderNavAuthState;
 
 document.addEventListener("DOMContentLoaded", renderNavAuthState);
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = String(str || "");
+  return div.innerHTML;
+}
