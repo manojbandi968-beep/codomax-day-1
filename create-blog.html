@@ -19,7 +19,7 @@
 
   <main class="container" style="max-width: 720px;">
     <div class="dash-header">
-      <h1>Write a new post</h1>
+      <h1 id="post-form-title">Write a new post</h1>
     </div>
 
     <div class="form-error" id="form-error"></div>
@@ -51,7 +51,7 @@
         <textarea id="content" name="content" required placeholder="Write your post…"></textarea>
       </div>
 
-      <button type="submit" class="btn">Publish</button>
+      <button type="submit" id="submit-post-btn" class="btn">Publish</button>
       <a href="dashboard.html" class="btn btn-outline">Cancel</a>
     </form>
   </main>
@@ -62,14 +62,38 @@
     const user = requireAuth();
     const form = document.getElementById("create-post-form");
     const errorBox = document.getElementById("form-error");
+    const editId = new URLSearchParams(window.location.search).get("editId");
+    const titleInput = document.getElementById("title");
+    const categoryInput = document.getElementById("category");
+    const imageUrlInput = document.getElementById("image-url");
+    const contentInput = document.getElementById("content");
+    const submitButton = document.getElementById("submit-post-btn");
 
-    form.addEventListener("submit", (e) => {
+    async function hydrateEditForm() {
+      if (!editId) return;
+
+      const existing = getPostById(editId);
+      const post = existing || await fetch(`${API_BASE}/posts/${editId}`, { headers: getAuthHeaders() }).then((res) => res.ok ? res.json() : null).catch(() => null);
+
+      if (!post) return;
+
+      document.getElementById("post-form-title").textContent = "Edit post";
+      submitButton.textContent = "Update post";
+      titleInput.value = post.title || "";
+      categoryInput.value = post.category || "General";
+      imageUrlInput.value = post.imageUrl || "";
+      contentInput.value = post.content || "";
+    }
+
+    hydrateEditForm();
+
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
 
-      const title = document.getElementById("title").value.trim();
-      const category = document.getElementById("category").value;
-      const imageUrl = document.getElementById("image-url").value.trim();
-      const content = document.getElementById("content").value.trim();
+      const title = titleInput.value.trim();
+      const category = categoryInput.value;
+      const imageUrl = imageUrlInput.value.trim();
+      const content = contentInput.value.trim();
 
       if (!title || !content) {
         errorBox.textContent = "Title and content are required.";
@@ -77,16 +101,25 @@
         return;
       }
 
-      addPost({
-        title,
-        category,
-        content,
-        imageUrl,
-        authorId: user.id,
-        authorName: user.name,
-      });
+      try {
+        if (editId) {
+          await updatePost(editId, { title, category, content, imageUrl });
+        } else {
+          await addPost({
+            title,
+            category,
+            content,
+            imageUrl,
+            authorId: user.id,
+            authorName: user.name,
+          });
+        }
 
-      window.location.href = "dashboard.html";
+        window.location.href = "dashboard.html";
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.classList.add("show");
+      }
     });
   </script>
 </body>

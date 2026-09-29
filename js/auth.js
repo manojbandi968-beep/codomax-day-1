@@ -1,10 +1,10 @@
 /* ============================================
-   auth.js — user accounts & session, backed by localStorage
-   (Stands in for a real backend for this assignment.)
+   auth.js — user accounts & session, connected to the Express API
    ============================================ */
 
 const USERS_KEY = "inkwell_users";
 const SESSION_KEY = "inkwell_current_user";
+const API_BASE = `${window.location.origin}/api`;
 
 function getUsers() {
   try {
@@ -27,9 +27,8 @@ function getCurrentUser() {
 }
 
 function setCurrentUser(user) {
-  // never store the password in the session record
-  const { password, ...safeUser } = user;
-  localStorage.setItem(SESSION_KEY, JSON.stringify(safeUser));
+  const { password, ...safeUser } = user || {};
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ ...safeUser }));
 }
 
 function logout() {
@@ -37,7 +36,6 @@ function logout() {
   window.location.href = "login.html";
 }
 
-// Call at the top of any page that requires a signed-in user.
 function requireAuth() {
   const user = getCurrentUser();
   if (!user) {
@@ -50,34 +48,40 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-function registerUser({ name, email, password }) {
-  const users = getUsers();
-  if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
-    throw new Error("An account with that email already exists.");
+async function registerUser({ name, email, password }) {
+  const response = await fetch(`${API_BASE}/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || "Registration failed.");
   }
-  const newUser = {
-    id: "u_" + Date.now(),
-    name,
-    email,
-    password, // demo-only: plain text, fine for a localStorage prototype, never do this with a real backend
-  };
-  users.push(newUser);
-  saveUsers(users);
-  return newUser;
+
+  const registeredUser = data.user || { name, email };
+  saveUsers([...getUsers(), { id: registeredUser.id, name: registeredUser.name, email: registeredUser.email, password }]);
+  return registeredUser;
 }
 
-function loginUser({ email, password }) {
-  const users = getUsers();
-  const user = users.find(
-    (u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password
-  );
-  if (!user) {
-    throw new Error("Email or password is incorrect.");
+async function loginUser({ email, password }) {
+  const response = await fetch(`${API_BASE}/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || "Email or password is incorrect.");
   }
-  return user;
+
+  return data.user;
 }
 
-// Reflects signed-in state in the navbar across all pages.
 function renderNavAuthState() {
   const user = getCurrentUser();
   const authSlot = document.getElementById("nav-auth-slot");
@@ -99,5 +103,14 @@ function renderNavAuthState() {
     `;
   }
 }
+
+window.getCurrentUser = getCurrentUser;
+window.setCurrentUser = setCurrentUser;
+window.logout = logout;
+window.requireAuth = requireAuth;
+window.isValidEmail = isValidEmail;
+window.registerUser = registerUser;
+window.loginUser = loginUser;
+window.renderNavAuthState = renderNavAuthState;
 
 document.addEventListener("DOMContentLoaded", renderNavAuthState);

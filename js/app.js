@@ -1,8 +1,9 @@
 /* ============================================
-   app.js — blog post storage & rendering, backed by localStorage
+   app.js — blog post storage & rendering, connected to the Express API
    ============================================ */
 
 const POSTS_KEY = "inkwell_posts";
+const API_BASE = `${window.location.origin}/api`;
 
 function getPosts() {
   try {
@@ -16,24 +17,154 @@ function savePosts(posts) {
   localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
 }
 
-function addPost({ title, category, content, imageUrl, authorId, authorName }) {
-  const posts = getPosts();
-  const post = {
-    id: "p_" + Date.now(),
+function getAuthHeaders(extra = {}) {
+  const currentUser = typeof getCurrentUser === "function" ? getCurrentUser() : null;
+  const token = currentUser && currentUser.token ? currentUser.token : "";
+
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+}
+
+function filterPosts(posts, searchTerm = "", category = "All") {
+  const normalizedSearch = String(searchTerm || "").trim().toLowerCase();
+  const normalizedCategory = String(category || "All").trim();
+
+  return posts.filter((post) => {
+    const categoryMatch = normalizedCategory === "All" || (post.category || "General") === normalizedCategory;
+    const haystack = `${post.title || ""} ${post.content || ""} ${post.category || ""}`.toLowerCase();
+    const searchMatch = !normalizedSearch || haystack.includes(normalizedSearch);
+    return categoryMatch && searchMatch;
+  });
+}
+
+function getAvailableCategories(posts) {
+  const categories = [...new Set((posts || []).map((post) => post.category || "General"))];
+  return ["All", ...categories];
+}
+
+async function fetchPosts(filters = {}) {
+  const searchTerm = String(filters.search || "").trim();
+  const category = String(filters.category || "All").trim();
+
+  const params = new URLSearchParams();
+  if (searchTerm) params.set("search", searchTerm);
+  if (category && category !== "All") params.set("category", category);
+
+  try {
+    const response = await fetch(`${API_BASE}/posts${params.toString() ? `?${params.toString()}` : ""}`);
+    if (!response.ok) {
+      throw new Error("Failed to load posts.");
+    }
+
+    const posts = await response.json();
+    if (Array.isArray(posts)) {
+      savePosts(posts);
+      return filterPosts(posts, searchTerm, category);
+    }
+  } catch (error) {
+    console.warn("Falling back to local posts:", error.message);
+  }
+
+  const localPosts = filterPosts(getPosts(), searchTerm, category);
+  return localPosts;
+}
+
+async function addPost({ title, category, content, imageUrl, authorId, authorName }) {
+  const payload = {
     title,
     category,
     content,
     imageUrl: imageUrl || "",
     authorId,
     authorName,
-    createdAt: new Date().toISOString(),
   };
-  posts.unshift(post);
-  savePosts(posts);
-  return post;
+
+  try {
+    const response = await fetch(`${API_BASE}/posts`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to create post.");
+    }
+
+    const stored = getPosts();
+    const posts = stored.filter((post) => post.id !== data.id);
+    posts.unshift(data);
+    savePosts(posts);
+    return data;
+  } catch (error) {
+    const localPost = {
+      id: "p_" + Date.now(),
+      title,
+      category,
+      content,
+      imageUrl: imageUrl || "",
+      authorId,
+      authorName,
+      createdAt: new Date().toISOString(),
+    };
+
+    const posts = [localPost, ...getPosts()];
+    savePosts(posts);
+    return localPost;
+  }
 }
 
-function deletePost(postId) {
+async function updatePost(postId, { title, category, content, imageUrl }) {
+  const payload = { title, category, content, imageUrl: imageUrl || "" };
+
+  try {
+    const response = await fetch(`${API_BASE}/posts/${postId}`, {
+      method: "PUT",
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to update post.");
+    }
+
+    const posts = getPosts().map((post) => (post.id === postId ? { ...post, ...data } : post));
+    savePosts(posts);
+    return data;
+  } catch (error) {
+    const updated = {
+      ...getPostById(postId),
+      title,
+      category,
+      content,
+      imageUrl: imageUrl || "",
+      updatedAt: new Date().toISOString(),
+    };
+
+    const posts = getPosts().map((post) => (post.id === postId ? updated : post));
+    savePosts(posts);
+    return updated;
+  }
+}
+
+async function deletePost(postId) {
+  try {
+    const response = await fetch(`${API_BASE}/posts/${postId}`, {
+      method: "DELETE",
+      headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+      throw new Error("Unable to delete post.");
+    }
+  } catch (error) {
+    console.warn("Using local fallback for delete:", error.message);
+  }
+
   const posts = getPosts().filter((p) => p.id !== postId);
   savePosts(posts);
 }
@@ -58,12 +189,10 @@ function escapeHtml(str) {
 }
 
 function excerpt(content, maxLen = 110) {
-  const clean = content.replace(/\s+/g, " ").trim();
+  const clean = String(content || "").replace(/\s+/g, " ").trim();
   return clean.length > maxLen ? clean.slice(0, maxLen).trim() + "…" : clean;
 }
 
-// Seeds a couple of sample posts the first time the app runs,
-// so the Home page isn't empty on a fresh clone.
 function seedDemoPostsIfEmpty() {
   if (getPosts().length > 0) return;
   const demo = [
@@ -86,11 +215,13 @@ function seedDemoPostsIfEmpty() {
       authorName: "Inkwell Team",
     },
   ];
+
   const posts = demo.map((p, i) => ({
     id: "p_seed_" + i,
     createdAt: new Date(Date.now() - i * 86400000).toISOString(),
     ...p,
   }));
+
   savePosts(posts);
 }
 
@@ -109,10 +240,16 @@ function postCardHtml(post) {
   `;
 }
 
-function renderHomeGrid(containerId) {
+async function renderHomeGrid(containerId, options = {}) {
   seedDemoPostsIfEmpty();
   const container = document.getElementById(containerId);
-  const posts = getPosts();
+  const searchTerm = typeof options.search === "string" ? options.search : "";
+  const category = typeof options.category === "string" ? options.category : "All";
+  const posts = Array.isArray(options.posts)
+    ? filterPosts(options.posts, searchTerm, category)
+    : await fetchPosts({ search: searchTerm, category });
+
+  if (!container) return;
 
   if (posts.length === 0) {
     container.innerHTML = `
@@ -130,7 +267,15 @@ function renderHomeGrid(containerId) {
       e.preventDefault();
       const post = getPostById(link.dataset.postId);
       if (post) alert(post.title + "\n\n" + post.content);
-      // Swap this alert for a real post.html?id= page if you want full post views.
     });
   });
 }
+
+window.fetchPosts = fetchPosts;
+window.addPost = addPost;
+window.updatePost = updatePost;
+window.deletePost = deletePost;
+window.getPostById = getPostById;
+window.filterPosts = filterPosts;
+window.getAvailableCategories = getAvailableCategories;
+window.renderHomeGrid = renderHomeGrid;

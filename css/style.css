@@ -214,6 +214,24 @@ button:focus-visible {
   line-height: 1.6;
 }
 
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 24px 0 28px;
+}
+
+.toolbar input,
+.toolbar select {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 10px 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
 .field-hint {
   font-size: 0.8rem;
   color: var(--ink-soft);

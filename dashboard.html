@@ -40,11 +40,12 @@
   <script>
     const user = requireAuth();
 
-    function renderDashboard() {
-      if (!user) return; // requireAuth already redirected
+    async function renderDashboard() {
+      if (!user) return;
       document.getElementById("dash-sub").textContent = `Signed in as ${user.name}`;
 
-      const myPosts = getPosts().filter((p) => p.authorId === user.id);
+      const posts = await fetchPosts();
+      const myPosts = posts.filter((p) => p.authorId === user.id);
       const list = document.getElementById("dash-post-list");
 
       if (myPosts.length === 0) {
@@ -66,6 +67,7 @@
           </div>
           <div class="post-row-actions">
             <button class="btn btn-outline btn-view" data-id="${p.id}">View</button>
+            <button class="btn btn-outline btn-edit" data-id="${p.id}">Edit</button>
             <button class="btn btn-danger btn-delete" data-id="${p.id}">Delete</button>
           </div>
         </div>
@@ -80,10 +82,16 @@
         });
       });
 
-      list.querySelectorAll(".btn-delete").forEach((btn) => {
+      list.querySelectorAll(".btn-edit").forEach((btn) => {
         btn.addEventListener("click", () => {
+          window.location.href = `create-blog.html?editId=${encodeURIComponent(btn.dataset.id)}`;
+        });
+      });
+
+      list.querySelectorAll(".btn-delete").forEach((btn) => {
+        btn.addEventListener("click", async () => {
           if (confirm("Delete this post? This can't be undone.")) {
-            deletePost(btn.dataset.id);
+            await deletePost(btn.dataset.id);
             renderDashboard();
           }
         });

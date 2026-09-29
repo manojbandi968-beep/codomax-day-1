@@ -45,7 +45,7 @@
     const form = document.getElementById("login-form");
     const errorBox = document.getElementById("form-error");
 
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
       errorBox.classList.remove("show");
 
@@ -59,7 +59,7 @@
       }
 
       try {
-        const user = loginUser({ email, password });
+        const user = await loginUser({ email, password });
         setCurrentUser(user);
         window.location.href = "dashboard.html";
       } catch (err) {
